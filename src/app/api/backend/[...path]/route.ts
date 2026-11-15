@@ -5,7 +5,14 @@ import { getToken } from "@/lib/auth";
  * BFF 프록시: 브라우저 → Next.js → FastAPI.
  * 인증 토큰 주입, 요청 검증 등을 이곳에서 처리하면 백엔드 주소와 비밀값이 브라우저에 노출되지 않는다.
  */
-const FORWARD_RESPONSE_HEADERS = ["content-type", "cache-control", "x-vercel-ai-ui-message-stream"];
+const FORWARD_RESPONSE_HEADERS = [
+  "content-type",
+  "cache-control",
+  "x-vercel-ai-ui-message-stream",
+  // 파일 내려받기: 이름과 "화면에 그리지 말고 저장" 지시를 그대로 넘긴다
+  "content-disposition",
+  "x-content-type-options",
+];
 
 async function proxy(request: Request, { params }: RouteContext<"/api/backend/[...path]">) {
   const { path } = await params;

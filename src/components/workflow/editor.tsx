@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DiffPanel } from "@/components/workflow/diff-panel";
 import { NodeConfig } from "@/components/workflow/node-config";
 import { JsonDialog } from "@/components/workflow/json-dialog";
+import { AttachFiles, RunFiles, type StoredFile } from "@/components/workflow/run-files";
 import { RunHistory } from "@/components/workflow/run-history";
 import { SchedulePanel } from "@/components/workflow/schedule-panel";
 import { DRAG_TYPE, NodePalette, type PaletteItem } from "@/components/workflow/node-palette";
@@ -114,6 +115,8 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
   const [pastRunAt, setPastRunAt] = useState<string | null>(null); // 지난 실행을 보는 중이면 그 시각
   const [historyKey, setHistoryKey] = useState(0); // 실행이 끝나면 기록 목록을 다시 불러온다
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [attached, setAttached] = useState<StoredFile[]>([]); // 실행에 딸려 보낼 파일 ({{file_1}} …)
+  const [runFiles, setRunFiles] = useState<StoredFile[]>([]); // 보고 있는 실행에서 노드가 만든 파일
   const [schedule, setSchedule] = useState(workflow.schedule ?? null);
   const [nextRunAt, setNextRunAt] = useState(workflow.next_run_at ?? null);
   const [deleteProtected, setDeleteProtected] = useState(workflow.delete_protected ?? false);
@@ -398,6 +401,7 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
           },
     );
     setInput(data.input ?? "");
+    setRunFiles(data.files ?? []);
     setRunId(data.id);
     setRunFeedback(data.feedback ?? null);
     setPastRunAt(data.created_at);
@@ -409,6 +413,7 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
     setSteps([]);
     setRun({ status: "idle" });
     setRunId(null);
+    setRunFiles([]);
     setPastRunAt(null);
   };
 
@@ -420,15 +425,17 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
     setRunFeedback(null);
     setPastRunAt(null);
     setExpanded(null);
+    setRunFiles([]);
     setRun({ status: "running" });
     const controller = new AbortController();
     abortRef.current = controller;
+    let startedRunId: string | null = null;
 
     try {
       const response = await fetch(`/api/backend/workflows/${workflow.id}/run`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input, files: attached.map((f) => f.id) }),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -450,7 +457,10 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
         buffer = chunks.pop() ?? "";
         for (const chunk of chunks) {
           const data = chunk.replace(/^data: /, "").trim();
-          if (data) applyEvent(JSON.parse(data) as RunEvent);
+          if (!data) continue;
+          const event = JSON.parse(data) as RunEvent;
+          if (event.type === "run_start") startedRunId = event.run_id ?? null;
+          applyEvent(event);
         }
       }
       setRun((r) =>
@@ -469,6 +479,11 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
     } finally {
       abortRef.current = null;
       setHistoryKey((k) => k + 1);
+      if (startedRunId) {
+        // 노드가 만든 파일은 실행 기록에 붙는다. 실패·중지한 실행도 그때까지 만든 파일은 보여 준다.
+        const { data } = await api.GET("/api/v1/runs/{run_id}", { params: { path: { run_id: startedRunId } } });
+        setRunFiles(data?.files ?? []);
+      }
     }
   };
 
@@ -812,6 +827,7 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
                       노드에서 <code className="bg-muted rounded px-1">{"{{input}}"}</code> 으로 씁니다. ⌘+Enter 로
                       실행.
                     </span>
+                    <AttachFiles files={attached} onChange={setAttached} disabled={running} />
                     {running ? (
                       <Button variant="outline" onClick={() => abortRef.current?.abort()}>
                         <Square className="size-3 fill-current" />
@@ -898,6 +914,8 @@ function Editor({ workflow, models, defaultModel, tools, agents, focusName }: Ed
                       )}
                     </div>
                   )}
+
+                  <RunFiles files={runFiles} />
 
                   {run.status === "idle" && (
                     <p className="text-muted-foreground text-sm">입력을 적고 실행하면 노드별 결과가 여기에 쌓입니다.</p>

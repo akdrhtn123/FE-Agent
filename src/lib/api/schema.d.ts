@@ -422,7 +422,7 @@ export interface paths {
         };
         /**
          * Get Run
-         * @description 실행 한 번의 입력·노드별 결과·최종 출력.
+         * @description 실행 한 번의 입력·노드별 결과·최종 출력·만든 파일.
          */
         get: operations["get_run_api_v1_runs__run_id__get"];
         put?: never;
@@ -465,6 +465,68 @@ export interface paths {
          * @description 최근 N일 모델 사용량과 비용. 모델 호출마다 남긴 기록을 모은다.
          */
         get: operations["get_usage_api_v1_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Files
+         * @description 내 파일 (새것부터).
+         */
+        get: operations["list_files_api_v1_files_get"];
+        put?: never;
+        /**
+         * Upload File
+         * @description 파일을 올린다 (multipart, 필드 이름 `file`). 돌려받은 `ref` 를 워크플로우 실행의 `files` 에 넣는다.
+         */
+        post: operations["upload_file_api_v1_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get File */
+        get: operations["get_file_api_v1_files__file_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete File */
+        delete: operations["delete_file_api_v1_files__file_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{file_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download File
+         * @description 파일 내용. 브라우저가 화면에 그리지 않고 내려받게 한다 (올린 HTML 이 이 사이트 권한으로 실행되지 않게).
+         */
+        get: operations["download_file_api_v1_files__file_id__content_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -825,6 +887,11 @@ export interface components {
              */
             created_at: string;
         };
+        /** Body_upload_file_api_v1_files_post */
+        Body_upload_file_api_v1_files_post: {
+            /** File */
+            file: string;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -1006,6 +1073,31 @@ export interface components {
             /** Comment */
             comment?: string | null;
         };
+        /** FileRead */
+        FileRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Content Type */
+            content_type: string;
+            /** Size */
+            size: number;
+            /** Run Id */
+            run_id?: string | null;
+            /** Node Id */
+            node_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Ref
+             * @description 노드 입력·도구 인자에 넣는 참조 (`file:<id>`)
+             */
+            readonly ref: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1157,6 +1249,11 @@ export interface components {
             finished_at: string | null;
             /** Steps */
             steps: components["schemas"]["RunStep"][];
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["FileRead"][];
         };
         /** RunStep */
         RunStep: {
@@ -1491,6 +1588,11 @@ export interface components {
              * @default
              */
             input: string;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
         };
         /**
          * WorkflowSchedule
@@ -2232,7 +2334,7 @@ export interface operations {
                     "text/event-stream": unknown;
                 };
             };
-            /** @description 그래프 검증 실패. detail 에 오류 목록 */
+            /** @description 그래프 검증 실패 또는 없는 파일. detail 에 오류 목록 */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -2715,6 +2817,161 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UsageRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_files_get: {
+        parameters: {
+            query?: {
+                /** @description 이 실행에서 만들어진 파일만 */
+                run_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_file_api_v1_files_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_file_api_v1_files_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_file_api_v1_files__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_file_api_v1_files__file_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_file_api_v1_files__file_id__content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
